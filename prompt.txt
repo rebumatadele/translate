@@ -1,13 +1,13 @@
 Please translate the following English text into Spanish and then format the output as follows to help with learning Spanish:
 
-don't use any markup or markdown just plain text.
-Remove any timestamps from the text.
-Divide the text into small chunks of 3 to 5 words.
-The first line of each chunk should be the Spanish translation.
-The second line should be "(pause: 1)".
-The third line should be the original English text.
-The fourth line should be "(pause: 1)".
-Continue this pattern for the entire text.
+1. don't use any markup or markdown just plain text.
+2. Remove any timestamps from the text.
+3. Divide the text into small chunks of 3 to 5 words.
+4. The first line of each chunk should be the Spanish translation.
+5. The second line should be "(pause: 1)".
+6. The third line should be the original English text.
+8. The fourth line should be "(pause: 1)".
+9. Continue this pattern for the entire text.
 
 The goal is to make it easier to learn Spanish by breaking the text into manageable parts.
 
