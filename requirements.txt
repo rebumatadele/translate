@@ -2,3 +2,5 @@ openai
 tiktoken
 google-generativeai
 streamlit
+python-dotenv
+anthropic
