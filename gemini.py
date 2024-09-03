@@ -14,6 +14,20 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
+# Load prompt from a file
+def load_prompt(file_path="prompt.txt"):
+    try:
+        with open(file_path, 'r') as file:
+            return file.read()
+    except FileNotFoundError:
+        st.error(f"File {file_path} not found.")
+        return ""
+
+# Save the edited prompt back to the file
+def save_prompt(file_path, content):
+    with open(file_path, 'w') as file:
+        file.write(content)
+
 # Function to configure OpenAI
 def configure_openai(api_key):
     openai.api_key = api_key
@@ -42,7 +56,6 @@ def generate_with_anthropic(prompt):
         temperature=0.7  # Optional, adjust as needed
     )
     return response['completion']
-
 
 # Function to configure Gemini (Google Generative AI)
 def configure_gemini(api_key):
@@ -78,7 +91,7 @@ def write_response_to_file(response_text, file_name="output.txt"):
         file.write(response_text)
 
 # Process the text and save to output file
-def process_text(text_or_file, provider_choice, progress_bar=None):
+def process_text(text_or_file, provider_choice, prompt, progress_bar=None):
     text = load_text(text_or_file)
     if not text:
         return
@@ -94,8 +107,8 @@ def process_text(text_or_file, provider_choice, progress_bar=None):
 
         # Iterate over each chunk, send request, and append the response
         for i, chunk in enumerate(chunks):
-            prompt = chunk + load_text("prompt.txt")  # Add any additional prompt text if needed
-            response = get_response(prompt, provider_choice)
+            combined_prompt = chunk + prompt
+            response = get_response(combined_prompt, provider_choice)
             final_response += response
             
             # Update progress bar
@@ -106,8 +119,8 @@ def process_text(text_or_file, provider_choice, progress_bar=None):
             time.sleep(1)  # 1-second delay between requests
     else:
         # For Gemini, process the entire text at once
-        prompt = text + load_text("prompt.txt")  # Add any additional prompt text if needed
-        final_response = get_response(prompt, provider_choice)
+        combined_prompt = text + prompt
+        final_response = get_response(combined_prompt, provider_choice)
 
     # Write the final accumulated response to the output file
     write_response_to_file(final_response)
@@ -142,13 +155,22 @@ if st.button("Configure"):
     else:
         st.error("Please enter an API key.")
 
+# Editable prompt area
+prompt_text = load_prompt()
+edited_prompt = st.text_area("Edit your prompt template", value=prompt_text, height=200)
+
+# Button to save the edited prompt
+if st.button("Save Prompt"):
+    save_prompt("prompt.txt", edited_prompt)
+    st.success("Prompt saved successfully!")
+
 # File uploader
 uploaded_file = st.file_uploader("Upload an input text file", type="txt")
 
 # Editable input field prefilled with the prompt from the file
 if uploaded_file is not None:
     uploaded_text = uploaded_file.read().decode('utf-8')
-    edited_text = st.text_area("Edit your prompt", value=uploaded_text, height=300)
+    edited_text = st.text_area("Edit your input text", value=uploaded_text, height=300)
 else:
     edited_text = ""
 
@@ -163,23 +185,18 @@ if st.button("Process Text"):
         progress_bar = st.progress(0)
         
         # Process the text
-        response_text = process_text("input.txt", provider_choice, progress_bar)
+        response_text = process_text("input.txt", provider_choice, edited_prompt, progress_bar)
         
         st.success("Processing completed successfully!")
         
         # Show the output in a large text area with buttons
         st.text_area("Output", value=response_text, height=300)
-        
 
         st.download_button(
             label="Download Output",
             data=response_text,
             file_name="output.txt",
             mime="text/plain"
-            )
-
-        # Display the copied text in the session state
-        if "copied_text" in st.session_state:
-            st.code(st.session_state.copied_text)
+        )
     else:
         st.error("Please upload a file to process.")
