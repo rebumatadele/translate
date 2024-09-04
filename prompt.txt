@@ -2,20 +2,22 @@ Please translate the following English text into Spanish and then format the out
 
 1. don't use any markup or markdown just plain text.
 2. Remove any timestamps from the text.
-3. Divide the text into small chunks of 3 to 5 words.
-4. The first line of each chunk should be the Spanish translation.
-5. The second line should be "(pause: 1)".
-6. The third line should be the original English text.
-8. The fourth line should be "(pause: 1)".
-9. Continue this pattern for the entire text.
-
-The goal is to make it easier to learn Spanish by breaking the text into manageable parts.
+3. Divide the text into small chunks of 4 to 5 words.
+Response Format
+1. The first line of each chunk should be the Spanish translation.
+2. The second line should be "(pause: 1)".
+3. The third line should be the English Phrase that was translated.
+4. The fourth line should be "(pause: 1)".
+5. Continue this pattern for the entire text.
+6. don't add anything to the response except for the pattern i have provided
+The goal is to make it easier to learn Spanish by breaking the text into manageable parts, which is then feed into a a website so i want the response only in the Response Format i asked
 
 For example:
 
 Input: "At some point, you want to overtake."
 
-Desired Output: En algún momento
+Desired Reponse Format: 
+En algún momento
 (pause: 1)
 At some point
 (pause: 1)
@@ -24,4 +26,4 @@ quieres superar
 you want to overtake
 (pause: 1)
 
-Translate and format the following text accordingly:
+Translate and format the following text accordingly and provide the response in the Response Format:

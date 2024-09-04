@@ -34,11 +34,10 @@ def configure_openai(api_key):
     openai.api_key = api_key
 
 # Function to generate response with OpenAI
-def generate_with_openai(prompt):
+def generate_with_openai(prompt, model="gpt-4"):
     response = openai.chat.completions.create(
-        model="gpt-4",  # Use GPT-4 model
+        model= model,  # Use GPT-4 model
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=150
     )
     return response.choices[0].message.content
 
@@ -63,8 +62,7 @@ def generate_with_anthropic(prompt):
     
     data = {
         "model": "claude-3-5-sonnet-20240620",  # Ensure your key has access to this model
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 100
+        "messages": [{"role": "user", "content": prompt}]
     }
 
     try:
@@ -82,6 +80,7 @@ def generate_with_anthropic(prompt):
     except Exception as e:
         st.error(f"An error occurred: {e}")
         return None
+
 # Function to configure Gemini (Google Generative AI)
 def configure_gemini(api_key):
     genai.configure(api_key=api_key)
@@ -93,9 +92,9 @@ def generate_with_gemini(prompt):
     return response.text
 
 # Function to get the response based on the provider
-def get_response(prompt, provider_choice):
+def get_response(prompt, provider_choice, model_choice=None):
     if provider_choice == "OpenAI":
-        return generate_with_openai(prompt)
+        return generate_with_openai(prompt, model=model_choice)
     elif provider_choice == "Anthropic":
         return generate_with_anthropic(prompt)
     elif provider_choice == "Gemini":
@@ -121,7 +120,7 @@ def write_response_to_file(response_text, file_name="output.txt"):
         file.write(response_text)
 
 # Process the text and save to output file
-def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, progress_bar=None):
+def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, model_choice=None, progress_bar=None):
     text = load_text(text_or_file)
     if not text:
         return
@@ -132,8 +131,8 @@ def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, pro
         chunks = split_text_into_chunks(text, chunk_size_in_words)
 
         for i, chunk in enumerate(chunks):
-            combined_prompt = chunk + prompt
-            response = get_response(combined_prompt, provider_choice)
+            combined_prompt = prompt + chunk 
+            response = get_response(combined_prompt, provider_choice, model_choice=model_choice)
             if response is not None:
                 final_response += response
             else:
@@ -157,7 +156,7 @@ def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, pro
     else:
         st.error("No valid response was generated")
         return None
-    
+
 # Streamlit app UI
 st.title("Text Processor with Generative AI")
 
@@ -166,6 +165,14 @@ provider_choice = st.selectbox(
     "Choose a provider",
     ["OpenAI", "Anthropic", "Gemini"]
 )
+
+# Add model selection for OpenAI
+model_choice = None
+if provider_choice == "OpenAI":
+    model_choice = st.selectbox(
+        "Choose a model",
+        ["gpt-3.5-turbo", "gpt-4"]
+    )
 
 # Prefill the API key field from environment variables
 api_key = st.text_input("API Key", type="password", value={
@@ -220,7 +227,7 @@ if st.button("Process Text"):
         progress_bar = st.progress(0)
         
         # Process the text
-        response_text = process_text("input.txt", provider_choice, edited_prompt, chunk_size_input, progress_bar)
+        response_text = process_text("input.txt", provider_choice, edited_prompt, chunk_size_input, model_choice=model_choice, progress_bar=progress_bar)
         
         st.success("Processing completed successfully!")
         
