@@ -61,6 +61,9 @@ def generate_with_anthropic(prompt):
         "max_tokens": 1024,
 
     }
+    
+    st.title(headers)
+    st.title(data)
 
     try:
         response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=10)
