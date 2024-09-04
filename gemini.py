@@ -1,6 +1,6 @@
 import streamlit as st
 import openai
-import anthropic
+from anthropic import Anthropic
 import google.generativeai as genai
 import time
 from dotenv import load_dotenv
@@ -35,27 +35,32 @@ def configure_openai(api_key):
 # Function to generate response with OpenAI
 def generate_with_openai(prompt):
     response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",  # or "gpt-4" if you have access
+        model="gpt-4",  # Use GPT-4 model
         messages=[{"role": "user", "content": prompt}],
         max_tokens=150
     )
     return response.choices[0].message.content
-
+# Function to configure Anthropic (Claude)
 # Function to configure Anthropic (Claude)
 def configure_anthropic(api_key):
-    anthropic.api_key = api_key
+    return Anthropic(api_key=api_key)
 
 # Function to generate response with Anthropic (Claude)
+client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
 def generate_with_anthropic(prompt):
-    client = anthropic.Client(api_key=anthropic.api_key)
-    response = client.completions.create(
-        model="claude-1",  # Specify the model, adjust if needed
-        prompt=f"\n\nHuman: {prompt}\n\nAssistant:",  # Anthropic uses specific prompt formatting
-        max_tokens_to_sample=150,
-        stop_sequences=["\n\nHuman:"],  # This is optional but useful to prevent long responses
-        temperature=0.7  # Optional, adjust as needed
-    )
-    return response['completion']
+    try:
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20240620",
+            max_tokens=1024,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.content[0].text
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
 # Function to configure Gemini (Google Generative AI)
 def configure_gemini(api_key):
@@ -99,33 +104,36 @@ def process_text(text_or_file, provider_choice, prompt, progress_bar=None):
     final_response = ""
     
     if provider_choice in ["OpenAI", "Anthropic"]:
-        # Define the chunk size (adjust based on needs)
-        chunk_size = 3000  # Adjust the chunk size to fit within the token limit
-
-        # Split text into chunks
+        chunk_size = 3000 
         chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
 
-        # Iterate over each chunk, send request, and append the response
         for i, chunk in enumerate(chunks):
             combined_prompt = chunk + prompt
             response = get_response(combined_prompt, provider_choice)
-            final_response += response
+            if response is not None:
+                final_response += response
+            else:
+                st.error(f"Failed to get response for chunk {i+1}")
             
-            # Update progress bar
             if progress_bar:
                 progress_bar.progress((i + 1) / len(chunks))
             
-            # Delay between requests to avoid hitting rate limits
-            time.sleep(1)  # 1-second delay between requests
+            time.sleep(1)
     else:
-        # For Gemini, process the entire text at once
         combined_prompt = text + prompt
-        final_response = get_response(combined_prompt, provider_choice)
+        response = get_response(combined_prompt, provider_choice)
+        if response is not None:
+            final_response = response
+        else:
+            st.error("Failed to get response")
 
-    # Write the final accumulated response to the output file
-    write_response_to_file(final_response)
-    return final_response
-
+    if final_response:
+        write_response_to_file(final_response)
+        return final_response
+    else:
+        st.error("No valid response was generated")
+        return None
+    
 # Streamlit app UI
 st.title("Text Processor with Generative AI")
 
