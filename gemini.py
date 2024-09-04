@@ -47,9 +47,8 @@ def configure_anthropic(api_key):
     ANTHROPIC_API_KEY = api_key
 
 def generate_with_anthropic(prompt):
-    st.header(f"Using API Key: {api_key}")  # For debugging
     headers = {
-        'x-api-key': ANTHROPIC_API_KEY,
+        'x-api-key': api_key,
         'content-type': 'application/json',
         'anthropic-version': '2023-06-01',
         "anthropic-dangerous-direct-browser-access": "true",
