@@ -46,18 +46,19 @@ def configure_anthropic(api_key):
     global ANTHROPIC_API_KEY
     ANTHROPIC_API_KEY = api_key
 
-# Function to generate response with Anthropic (Claude)
 def generate_with_anthropic(prompt):
     headers = {
-        'x-api-key': ANTHROPIC_API_KEY,  # Use x-api-key for authentication
+        'x-api-key': ANTHROPIC_API_KEY,
         'Content-Type': 'application/json',
         'anthropic-version': '2023-06-01',
         "anthropic-dangerous-direct-browser-access": "true",
     }
-    
+
     data = {
-        "model": "claude-3-5-sonnet-20240620",  # Ensure your key has access to this model
-        "messages": [{"role": "user", "content": prompt}]
+        "model": "claude-3-5-sonnet-20240620",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 1024,
+
     }
 
     try:
@@ -66,16 +67,19 @@ def generate_with_anthropic(prompt):
         # Handle the response
         if response.status_code == 200:
             return response.json().get("completion", "No completion field in response")
-        elif response.status_code == 403:
-            st.error("403 Error: Access forbidden. Please check your API key permissions and ensure it has the correct scope.")
-            return None
         else:
-            st.error(f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}")
+            error_message = f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}"
+            st.error(error_message)
+            print("Full response:")
+            print(f"Status code: {response.status_code}")
+            print(f"Headers: {response.headers}")
+            print(f"Response body: {response.text}")
             return None
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        error_message = f"An error occurred: {e}"
+        st.error(error_message)
+        print(error_message)
         return None
-
 # Function to configure Gemini (Google Generative AI)
 def configure_gemini(api_key):
     genai.configure(api_key=api_key)
