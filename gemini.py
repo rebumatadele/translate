@@ -48,16 +48,11 @@ def configure_anthropic(api_key):
 
 # Function to generate response with Anthropic (Claude)
 def generate_with_anthropic(prompt):
-    # Check if API key is configured
-    if not ANTHROPIC_API_KEY:
-        st.error("Anthropic API key is not configured. Please provide a valid API key.")
-        return None
-
     headers = {
         'x-api-key': ANTHROPIC_API_KEY,  # Use x-api-key for authentication
         'Content-Type': 'application/json',
         'anthropic-version': '2023-06-01',
-        'User-Agent': 'Mozilla/5.0'  # Set a User-Agent header
+        "anthropic-dangerous-direct-browser-access": "true",
     }
     
     data = {
