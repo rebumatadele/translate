@@ -5,6 +5,7 @@ import google.generativeai as genai
 import time
 from dotenv import load_dotenv
 import os
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -40,26 +41,44 @@ def generate_with_openai(prompt):
         max_tokens=150
     )
     return response.choices[0].message.content
-# Function to configure Anthropic (Claude)
+
 # Function to configure Anthropic (Claude)
 def configure_anthropic(api_key):
-    return Anthropic(api_key=api_key)
+    return api_key
 
 # Function to generate response with Anthropic (Claude)
-client = Anthropic(api_key=ANTHROPIC_API_KEY)
-
 def generate_with_anthropic(prompt):
+    # Set the headers for the request
+    headers = {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01'
+    }
+    
+    # Define the request payload
+    data = {
+        "model": "claude-3-5-sonnet-20240620",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "max_tokens": 100
+    }
+
     try:
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20240620",
-            max_tokens=1024,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.content[0].text
-    except Exception as e:
-        print(f"An error occurred: {e}")
+        # Make the POST request to the Anthropic API
+        response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=10)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            return response.json()["completion"]
+        else:
+            st.error(f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}")
+            return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"An error occurred: {e}")
         return None
 
 # Function to configure Gemini (Google Generative AI)
@@ -81,6 +100,11 @@ def get_response(prompt, provider_choice):
     elif provider_choice == "Gemini":
         return generate_with_gemini(prompt)
 
+# Split text into chunks of words
+def split_text_into_chunks(text, chunk_size_in_words):
+    words = text.split()
+    return [' '.join(words[i:i + chunk_size_in_words]) for i in range(0, len(words), chunk_size_in_words)]
+
 # Load text from a file
 def load_text(file_path):
     try:
@@ -96,7 +120,7 @@ def write_response_to_file(response_text, file_name="output.txt"):
         file.write(response_text)
 
 # Process the text and save to output file
-def process_text(text_or_file, provider_choice, prompt, progress_bar=None):
+def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, progress_bar=None):
     text = load_text(text_or_file)
     if not text:
         return
@@ -104,8 +128,7 @@ def process_text(text_or_file, provider_choice, prompt, progress_bar=None):
     final_response = ""
     
     if provider_choice in ["OpenAI", "Anthropic"]:
-        chunk_size = 3000 
-        chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+        chunks = split_text_into_chunks(text, chunk_size_in_words)
 
         for i, chunk in enumerate(chunks):
             combined_prompt = chunk + prompt
@@ -182,6 +205,9 @@ if uploaded_file is not None:
 else:
     edited_text = ""
 
+# Input field for chunk size (words)
+chunk_size_input = st.number_input("Set chunk size (in words)", min_value=100, max_value=5000, value=500)
+
 # Button to process the file
 if st.button("Process Text"):
     if edited_text:
@@ -193,7 +219,7 @@ if st.button("Process Text"):
         progress_bar = st.progress(0)
         
         # Process the text
-        response_text = process_text("input.txt", provider_choice, edited_prompt, progress_bar)
+        response_text = process_text("input.txt", provider_choice, edited_prompt, chunk_size_input, progress_bar)
         
         st.success("Processing completed successfully!")
         
