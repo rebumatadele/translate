@@ -47,9 +47,10 @@ def configure_anthropic(api_key):
     ANTHROPIC_API_KEY = api_key
 
 def generate_with_anthropic(prompt):
+    st.header(ANTHROPIC_API_KEY)
     headers = {
         'x-api-key': ANTHROPIC_API_KEY,
-        'Content-Type': 'application/json',
+        'content-type': 'application/json',
         'anthropic-version': '2023-06-01',
         "anthropic-dangerous-direct-browser-access": "true",
     }
@@ -70,10 +71,6 @@ def generate_with_anthropic(prompt):
         else:
             error_message = f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}"
             st.error(error_message)
-            print("Full response:")
-            print(f"Status code: {response.status_code}")
-            print(f"Headers: {response.headers}")
-            print(f"Response body: {response.text}")
             return None
     except Exception as e:
         error_message = f"An error occurred: {e}"
