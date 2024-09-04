@@ -5,7 +5,7 @@ import google.generativeai as genai
 import time
 from dotenv import load_dotenv
 import os
-import requests
+import curl_cffi
 
 # Load environment variables
 load_dotenv()
@@ -44,42 +44,46 @@ def generate_with_openai(prompt):
 
 # Function to configure Anthropic (Claude)
 def configure_anthropic(api_key):
-    return api_key
+    global ANTHROPIC_API_KEY
+    ANTHROPIC_API_KEY = api_key
 
 # Function to generate response with Anthropic (Claude)
 def generate_with_anthropic(prompt):
-    # Set the headers for the request
+    # Check if API key is configured
+    if not ANTHROPIC_API_KEY:
+        st.error("Anthropic API key is not configured. Please provide a valid API key.")
+        return None
+
     headers = {
-        'x-api-key': ANTHROPIC_API_KEY,
+        'x-api-key': ANTHROPIC_API_KEY,  # Use x-api-key for authentication
         'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     
-    # Define the request payload
     data = {
-        "model": "claude-3-5-sonnet-20240620",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
+        "model": "claude-3-5-sonnet-20240620",  # Ensure your key has access to this model
+        "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 100
     }
 
     try:
-        # Make the POST request to the Anthropic API
-        response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=10)
+        # Use curl_cffi for the request
+        response = curl_cffi.requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=10)
         
-        # Check if the request was successful
+        # Handle the response
         if response.status_code == 200:
-            return response.json()["completion"]
+            print("Response:", response.json().get("completion", "No completion field in response"))
+            return response.json().get("completion", "No completion field in response")
+        elif response.status_code == 403:
+            st.error("403 Error: Access forbidden. Please check your API key permissions and ensure it has the correct scope.")
+            return None
         else:
             st.error(f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}")
             return None
-    except requests.exceptions.RequestException as e:
+    except curl_cffi.exceptions.RequestException as e:
         st.error(f"An error occurred: {e}")
-        return None
+        return None  
 
 # Function to configure Gemini (Google Generative AI)
 def configure_gemini(api_key):
