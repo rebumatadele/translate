@@ -65,7 +65,7 @@ def generate_with_anthropic(prompt):
     st.title(data)
 
     try:
-        response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=10)
+        response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=30)
         
         # Handle the response
         if response.status_code == 200:
