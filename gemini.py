@@ -69,7 +69,13 @@ def generate_with_anthropic(prompt):
         
         # Handle the response
         if response.status_code == 200:
-            return response.json().get("completion", "No completion field in response")
+            response_json = response.json()
+
+            # Extract text from the content field inside the response
+            if "content" in response_json and isinstance(response_json["content"], list):
+                return "".join([item.get("text", "") for item in response_json["content"]])
+            else:
+                return "No content field in response"
         else:
             error_message = f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}"
             st.error(error_message)
@@ -79,6 +85,7 @@ def generate_with_anthropic(prompt):
         st.error(error_message)
         print(error_message)
         return None
+
 # Function to configure Gemini (Google Generative AI)
 def configure_gemini(api_key):
     genai.configure(api_key=api_key)
