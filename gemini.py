@@ -5,7 +5,7 @@ import google.generativeai as genai
 import time
 from dotenv import load_dotenv
 import os
-import curl_cffi
+from curl_cffi import requests
 
 # Load environment variables
 load_dotenv()
@@ -58,7 +58,7 @@ def generate_with_anthropic(prompt):
         'x-api-key': ANTHROPIC_API_KEY,  # Use x-api-key for authentication
         'Content-Type': 'application/json',
         'anthropic-version': '2023-06-01',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0'  # Set a User-Agent header
     }
     
     data = {
@@ -68,12 +68,10 @@ def generate_with_anthropic(prompt):
     }
 
     try:
-        # Use curl_cffi for the request
-        response = curl_cffi.requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=10)
+        response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=10)
         
         # Handle the response
         if response.status_code == 200:
-            print("Response:", response.json().get("completion", "No completion field in response"))
             return response.json().get("completion", "No completion field in response")
         elif response.status_code == 403:
             st.error("403 Error: Access forbidden. Please check your API key permissions and ensure it has the correct scope.")
@@ -81,10 +79,9 @@ def generate_with_anthropic(prompt):
         else:
             st.error(f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}")
             return None
-    except curl_cffi.exceptions.RequestException as e:
+    except Exception as e:
         st.error(f"An error occurred: {e}")
-        return None  
-
+        return None
 # Function to configure Gemini (Google Generative AI)
 def configure_gemini(api_key):
     genai.configure(api_key=api_key)
