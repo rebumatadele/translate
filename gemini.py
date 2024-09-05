@@ -141,7 +141,6 @@ def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, mod
             
             if progress_bar:
                 progress_bar.progress((i + 1) / len(chunks))
-            
             time.sleep(1)
     else:
         combined_prompt = text + prompt
@@ -212,7 +211,7 @@ if uploaded_file is not None:
     uploaded_text = uploaded_file.read().decode('utf-8')
     edited_text = st.text_area("Edit your input text", value=uploaded_text, height=300)
 else:
-    edited_text = ""
+    edited_text = st.text_area("Edit your input text", value="", height=300)
 
 # Input field for chunk size (words)
 chunk_size_input = st.number_input("Set chunk size (in words)", min_value=100, max_value=5000, value=500)
