@@ -6,6 +6,8 @@ import time
 from dotenv import load_dotenv
 import os
 from curl_cffi import requests
+from nltk import sent_tokenize
+import re
 
 # Load environment variables
 load_dotenv()
@@ -15,13 +17,20 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
+# Utility function for error handling
+def handle_error(message):
+    st.error(message)
+    # Optionally, log to a file
+    with open("error_log.txt", "a") as log_file:
+        log_file.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
+
 # Load prompt from a file
 def load_prompt(file_path="prompt.txt"):
     try:
         with open(file_path, 'r') as file:
             return file.read()
     except FileNotFoundError:
-        st.error(f"File {file_path} not found.")
+        handle_error(f"File {file_path} not found.")
         return ""
 
 # Save the edited prompt back to the file
@@ -32,14 +41,19 @@ def save_prompt(file_path, content):
 # Function to configure OpenAI
 def configure_openai(api_key):
     openai.api_key = api_key
+    
+# Sanitize the file name by removing invalid characters
+def sanitize_file_name(file_name):
+    # Replace invalid characters with an underscore
+    return re.sub(r'[<>:"/\\|?*\r\n]+', '_', file_name)
 
 # Function to generate response with OpenAI
 def generate_with_openai(prompt, model="gpt-4"):
-    response = openai.chat.completions.create(
-        model= model,  # Use GPT-4 model
+    response = openai.ChatCompletion.create(
+        model=model,  
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.choices[0].message.content
+    return response.choices[0].message['content']
 
 # Function to configure Anthropic (Claude)
 def configure_anthropic(api_key):
@@ -48,38 +62,34 @@ def configure_anthropic(api_key):
 
 def generate_with_anthropic(prompt):
     headers = {
-        'x-api-key': api_key,
+        'x-api-key': ANTHROPIC_API_KEY,
         'content-type': 'application/json',
         'anthropic-version': '2023-06-01',
-        "anthropic-dangerous-direct-browser-access": "true",
     }
 
     data = {
         "model": "claude-3-5-sonnet-20240620",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 1024,
-
     }
+    
     try:
         response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data, timeout=30)
         
-        # Handle the response
         if response.status_code == 200:
             response_json = response.json()
-
-            # Extract text from the content field inside the response
-            if "content" in response_json and isinstance(response_json["content"], list):
-                return "".join([item.get("text", "") for item in response_json["content"]])
+            if "content" in response_json:
+                if isinstance(response_json["content"], list):
+                    return "".join([item.get("text", "") for item in response_json["content"]])
+                elif isinstance(response_json["content"], str):
+                    return response_json["content"]
             else:
-                return "No content field in response"
+                return "No content field in response."
         else:
-            error_message = f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}"
-            st.error(error_message)
+            handle_error(f"Anthropic Error: {response.status_code} - {response.json().get('error', {}).get('message', 'Unknown error')}")
             return None
     except Exception as e:
-        error_message = f"An error occurred: {e}"
-        st.error(error_message)
-        print(error_message)
+        handle_error(f"An error occurred: {e}")
         return None
 
 # Function to configure Gemini (Google Generative AI)
@@ -101,10 +111,17 @@ def get_response(prompt, provider_choice, model_choice=None):
     elif provider_choice == "Gemini":
         return generate_with_gemini(prompt)
 
-# Split text into chunks of words
-def split_text_into_chunks(text, chunk_size_in_words):
-    words = text.split()
-    return [' '.join(words[i:i + chunk_size_in_words]) for i in range(0, len(words), chunk_size_in_words)]
+# Split text into chunks of words, sentences, or paragraphs
+def split_text_into_chunks(text, chunk_size, chunk_by="words"):
+    if chunk_by == "words":
+        words = text.split()
+        return [' '.join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size)]
+    elif chunk_by == "sentences":
+        sentences = sent_tokenize(text)
+        return [' '.join(sentences[i:i + chunk_size]) for i in range(0, len(sentences), chunk_size)]
+    elif chunk_by == "paragraphs":
+        paragraphs = text.split('\n\n')
+        return paragraphs  # Paragraphs are already naturally split
 
 # Load text from a file
 def load_text(file_path):
@@ -112,24 +129,36 @@ def load_text(file_path):
         with open(file_path, 'r') as file:
             return file.read()
     except FileNotFoundError:
-        st.error(f"File {file_path} not found.")
+        handle_error(f"File {file_path} not found.")
         return ""
 
-# Write response to a file
-def write_response_to_file(response_text, file_name="output.txt"):
-    with open(file_name, 'w') as file:
+# Write response to a file, now with the same name as the original file plus '_done'
+def write_response_to_file(response_text, original_file_name):
+    # Set default file name if original_file_name is None
+    if original_file_name is None:
+        original_file_name = "output.txt"  # Default name
+        output_file_name = "output_done.txt"
+    else:
+        file_name_without_ext, ext = os.path.splitext(original_file_name)
+        sanitized_name = sanitize_file_name(file_name_without_ext)
+        output_file_name = f"{sanitized_name}_done{ext}"
+    
+    # Write response to file
+    with open(output_file_name, 'w') as file:
         file.write(response_text)
+    
+    return output_file_name
 
-# Process the text and save to output file
-def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, model_choice=None, progress_bar=None):
+def process_text(text_or_file, provider_choice, prompt, chunk_size, chunk_by="words", model_choice=None, progress_bar=None, original_file_name=None):
     text = load_text(text_or_file)
     if not text:
-        return
+        handle_error("No text loaded from the provided file.")
+        return None, None
     
     final_response = ""
     
     if provider_choice in ["OpenAI", "Anthropic"]:
-        chunks = split_text_into_chunks(text, chunk_size_in_words)
+        chunks = split_text_into_chunks(text, chunk_size, chunk_by)
 
         for i, chunk in enumerate(chunks):
             combined_prompt = prompt + chunk 
@@ -137,7 +166,7 @@ def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, mod
             if response is not None:
                 final_response += response
             else:
-                st.error(f"Failed to get response for chunk {i+1}")
+                handle_error(f"Failed to get response for chunk {i + 1}.")
             
             if progress_bar:
                 progress_bar.progress((i + 1) / len(chunks))
@@ -148,41 +177,47 @@ def process_text(text_or_file, provider_choice, prompt, chunk_size_in_words, mod
         if response is not None:
             final_response = response
         else:
-            st.error("Failed to get response")
+            handle_error("Failed to get response for the text.")
 
-    if final_response:
-        write_response_to_file(final_response)
-        return final_response
+    # Check if the final_response is empty
+    if final_response.strip():
+        output_file_name = write_response_to_file(final_response, original_file_name)
+        return final_response, output_file_name
     else:
-        st.error("No valid response was generated")
-        return None
+        handle_error("No valid response was generated. Please check the provider and prompt settings.")
+        return None, None
 
 # Streamlit app UI
-st.title("Text Processor with Generative AI")
+st.set_page_config(page_title="Text Processor with Generative AI", page_icon="🤖", layout="wide")
+
+# Sidebar for configuration
+st.sidebar.title("Configuration")
+st.sidebar.subheader("Provider Settings")
 
 # Select provider
-provider_choice = st.selectbox(
+provider_choice = st.sidebar.selectbox(
     "Choose a provider",
     ["OpenAI", "Anthropic", "Gemini"]
 )
 
-# Add model selection for OpenAI
+# Add model selection for all providers
 model_choice = None
 if provider_choice == "OpenAI":
-    model_choice = st.selectbox(
-        "Choose a model",
-        ["gpt-3.5-turbo", "gpt-4"]
-    )
+    model_choice = st.sidebar.selectbox("Choose a model", ["gpt-3.5-turbo", "gpt-4"])
+elif provider_choice == "Anthropic":
+    model_choice = st.sidebar.selectbox("Choose a model", ["claude-3-5-sonnet-20240620", "claude-3-5"])
+elif provider_choice == "Gemini":
+    model_choice = st.sidebar.selectbox("Choose a model", ["gemini-1.5-flash", "gemini-1.5"])
 
-# Prefill the API key field from environment variables
-api_key = st.text_input("API Key", type="password", value={
+# Prefill the API key field from environment variables or manual entry
+api_key = st.sidebar.text_input("API Key", type="password", value={
     "OpenAI": OPENAI_API_KEY,
     "Anthropic": ANTHROPIC_API_KEY,
     "Gemini": GEMINI_API_KEY
 }.get(provider_choice, ""))
 
-# Button to configure the provider
-if st.button("Configure"):
+# Configure the provider
+if st.sidebar.button("Configure"):
     if api_key:
         if provider_choice == "OpenAI":
             configure_openai(api_key)
@@ -190,11 +225,16 @@ if st.button("Configure"):
             configure_anthropic(api_key)
         elif provider_choice == "Gemini":
             configure_gemini(api_key)
-        st.success(f"{provider_choice} configured successfully!")
+        st.sidebar.success(f"{provider_choice} configured successfully!")
     else:
-        st.error("Please enter an API key.")
+        handle_error("Please enter an API key.")
+
+# Main layout
+st.title("Text Processor with Generative AI 🤖")
+st.subheader("Upload your text files and process them with AI")
 
 # Editable prompt area
+st.header("Prompt Template")
 prompt_text = load_prompt()
 edited_prompt = st.text_area("Edit your prompt template", value=prompt_text, height=200)
 
@@ -203,42 +243,54 @@ if st.button("Save Prompt"):
     save_prompt("prompt.txt", edited_prompt)
     st.success("Prompt saved successfully!")
 
-# File uploader
-uploaded_file = st.file_uploader("Upload an input text file", type="txt")
+# File uploader for multiple files
+st.header("Upload Files")
+uploaded_files = st.file_uploader("Upload input text files", type="txt", accept_multiple_files=True)
 
-# Editable input field prefilled with the prompt from the file
-if uploaded_file is not None:
-    uploaded_text = uploaded_file.read().decode('utf-8')
-    edited_text = st.text_area("Edit your input text", value=uploaded_text, height=300)
-else:
-    edited_text = st.text_area("Edit your input text", value="", height=300)
+# Input for chunk size and chunk type (words, sentences, paragraphs)
+st.header("Processing Settings")
+chunk_size_input = st.number_input("Set chunk size", min_value=1, max_value=5000, value=500)
+chunk_by = st.selectbox("Chunk by", ["words", "sentences", "paragraphs"])
 
-# Input field for chunk size (words)
-chunk_size_input = st.number_input("Set chunk size (in words)", min_value=100, max_value=5000, value=500)
+# Initialize session state for results
+if 'results' not in st.session_state:
+    st.session_state.results = []
 
-# Button to process the file
+# Button to process the files
 if st.button("Process Text"):
-    if edited_text:
-        # Save edited text to file
-        with open("input.txt", "w") as f:
-            f.write(edited_text)
-        
-        # Progress bar
+    if uploaded_files:
+        results = st.session_state.results
         progress_bar = st.progress(0)
         
-        # Process the text
-        response_text = process_text("input.txt", provider_choice, edited_prompt, chunk_size_input, model_choice=model_choice, progress_bar=progress_bar)
+        for i, uploaded_file in enumerate(uploaded_files):
+            file_name = uploaded_file.name
+            file_content = uploaded_file.read().decode('utf-8')
+            
+            # Save the file content to a temporary file
+            temp_file_path = f"temp_{file_name}"
+            with open(temp_file_path, "w") as temp_file:
+                temp_file.write(file_content)
+            
+            # Process the text
+            response_text, output_file_name = process_text(temp_file_path, provider_choice, edited_prompt, chunk_size_input, chunk_by, model_choice=model_choice, progress_bar=progress_bar, original_file_name=file_name)
+            
+            # Store the result
+            results.append((response_text, output_file_name))
+            
+            # Update progress bar
+            progress_bar.progress((i + 1) / len(uploaded_files))
         
-        st.success("Processing completed successfully!")
-        
-        # Show the output in a large text area with buttons
-        st.text_area("Output", value=response_text, height=300)
+        # Update session state with results
+        st.session_state.results = results
 
-        st.download_button(
-            label="Download Output",
-            data=response_text,
-            file_name="output.txt",
-            mime="text/plain"
-        )
-    else:
-        st.error("Please upload a file to process.")
+# Display results
+st.header("Results")
+for response_text, output_file_name in st.session_state.results:
+    st.subheader(f"Output for {output_file_name}")
+    st.text_area(f"Output for {output_file_name}", value=response_text, height=300)
+    st.download_button(
+        label=f"Download Output for {output_file_name}",
+        data=response_text,
+        file_name=output_file_name,
+        mime="text/plain"
+    )
