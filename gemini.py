@@ -226,7 +226,7 @@ if st.sidebar.button("Configure"):
 
 # Main layout
 st.title("Text Processor with Generative AI 🤖")
-st.subheader("Upload your text files and process them with AI")
+st.subheader("Upload your text files and process them with AI Using Multiple Providers")
 
 # Editable prompt area
 st.header("Prompt Template")
