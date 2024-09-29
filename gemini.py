@@ -192,7 +192,7 @@ st.sidebar.subheader("Provider Settings")
 # Select provider
 provider_choice = st.sidebar.selectbox(
     "Choose a provider",
-    ["OpenAI", "Anthropic", "Gemini"]
+    ["Anthropic", "Gemini", "OpenAI"]
 )
 
 # Add model selection for all providers
@@ -228,6 +228,7 @@ if st.sidebar.button("Configure"):
 st.title("Text Processor with Generative AI 🤖")
 st.subheader("Upload your text files and process them with AI Using Multiple Providers")
 
+st.markdown("---")
 # Editable prompt area
 st.header("Prompt Template")
 prompt_text = load_prompt()
@@ -237,7 +238,7 @@ edited_prompt = st.text_area("Edit your prompt template", value=prompt_text, hei
 if st.button("Save Prompt"):
     save_prompt("prompt.txt", edited_prompt)
     st.success("Prompt saved successfully!")
-
+st.markdown("---")
 # Initialize session state for uploaded files and results
 if 'uploaded_files' not in st.session_state:
     st.session_state.uploaded_files = None
@@ -268,7 +269,7 @@ if st.session_state.file_contents:
         st.session_state.file_contents = {}
         st.session_state.uploader_key = st.session_state.get("uploader_key", 0) + 1
         st.rerun()
-
+st.markdown("---")
 # Preview and edit section
 if st.session_state.file_contents:
     st.header("Preview and Edit Files")
@@ -295,7 +296,7 @@ st.header("Processing Settings")
 chunk_size_input = st.number_input("Set chunk size", min_value=1, max_value=5000, value=500)
 chunk_by = st.selectbox("Chunk by", ["words", "sentences", "paragraphs"])
 
-
+st.markdown("---")
 # Button to process the files
 if st.button("Process Text"):
     if st.session_state.file_contents:
@@ -310,7 +311,7 @@ if st.button("Process Text"):
         
         st.session_state.results = results
 
-
+st.markdown("---")
 # Display results
 st.header("Results")
 for response_text, output_file_name in st.session_state.results:
