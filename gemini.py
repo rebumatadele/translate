@@ -298,17 +298,21 @@ chunk_by = st.selectbox("Chunk by", ["words", "sentences", "paragraphs"])
 
 st.markdown("---")
 # Button to process the files
+num_files = len(st.session_state.file_contents)
 if st.button("Process Text"):
     if st.session_state.file_contents:
         results = []
         progress_bar = st.progress(0)
+        processed = 0
+        status_text = st.status("see processed files")
         for i, (file_name, file_content) in enumerate(st.session_state.file_contents.items()):
             response_text, output_file_name = process_text(file_content, provider_choice, edited_prompt, chunk_size_input, chunk_by, model_choice=model_choice, progress_bar=progress_bar, original_file_name=file_name)
             
             results.append((response_text, output_file_name))
             
             progress_bar.progress((i + 1) / len(st.session_state.file_contents))
-        
+            processed += 1
+            status_text.text(f"{file_name} processed, {processed} Files Processed Out Of {num_files}")
         st.session_state.results = results
 
 st.markdown("---")
