@@ -149,12 +149,7 @@ def write_response_to_file(response_text, original_file_name):
     
     return output_file_name
 
-def process_text(text_or_file, provider_choice, prompt, chunk_size, chunk_by="words", model_choice=None, progress_bar=None, original_file_name=None):
-    text = load_text(text_or_file)
-    if not text:
-        handle_error("No text loaded from the provided file.")
-        return None, None
-    
+def process_text(text, provider_choice, prompt, chunk_size, chunk_by="words", model_choice=None, progress_bar=None, original_file_name=None):
     final_response = ""
     
     if provider_choice in ["OpenAI", "Anthropic"]:
@@ -243,45 +238,78 @@ if st.button("Save Prompt"):
     save_prompt("prompt.txt", edited_prompt)
     st.success("Prompt saved successfully!")
 
-# File uploader for multiple files
-st.header("Upload Files")
-uploaded_files = st.file_uploader("Upload input text files", type="txt", accept_multiple_files=True)
+# Initialize session state for uploaded files and results
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = None
+if 'results' not in st.session_state:
+    st.session_state.results = []
+if 'file_contents' not in st.session_state:
+    st.session_state.file_contents = {}
 
+# File uploader for multiple files with a dynamic key
+st.header("Upload Files")
+uploader_key = "file_uploader_" + str(st.session_state.get("uploader_key", 0))
+uploaded_files = st.file_uploader("Upload input text files", type="txt", accept_multiple_files=True, key=uploader_key)
+
+# Store uploaded files in session state
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        file_name = uploaded_file.name
+        if file_name not in st.session_state.file_contents:
+            file_content = uploaded_file.read().decode('utf-8')
+            st.session_state.file_contents[file_name] = file_content
+
+# Clear button to clear the uploaded files
+if st.session_state.file_contents:
+    # st.markdown("<p style='font-size: small;'>Double Tap to clear</p>", unsafe_allow_html=True)
+    if st.button("Clear Files and Outputs"):
+        st.session_state.uploaded_files = None
+        st.session_state.results = []
+        st.session_state.file_contents = {}
+        st.session_state.uploader_key = st.session_state.get("uploader_key", 0) + 1
+        st.rerun()
+
+# Preview and edit section
+if st.session_state.file_contents:
+    st.header("Preview and Edit Files")
+    selected_file = st.selectbox("Select a file to preview and edit", list(st.session_state.file_contents.keys()), key="file_selector")
+    
+    # Initialize the edited content in session state if it doesn't exist
+    if f"edited_{selected_file}" not in st.session_state:
+        st.session_state[f"edited_{selected_file}"] = st.session_state.file_contents[selected_file]
+    
+    # Use a unique key for the text_area to ensure it updates correctly
+    edited_content = st.text_area("Edit the content", value=st.session_state[f"edited_{selected_file}"], height=300, key=f"edit_{selected_file}")
+    
+    # Update the session state whenever the content changes
+    if edited_content != st.session_state[f"edited_{selected_file}"]:
+        st.session_state[f"edited_{selected_file}"] = edited_content
+    
+    if st.button("Save Changes", key=f"save_{selected_file}"):
+        st.session_state.file_contents[selected_file] = edited_content
+        st.success(f"Changes to {selected_file} saved successfully!")
+        st.rerun()
+        
 # Input for chunk size and chunk type (words, sentences, paragraphs)
 st.header("Processing Settings")
 chunk_size_input = st.number_input("Set chunk size", min_value=1, max_value=5000, value=500)
 chunk_by = st.selectbox("Chunk by", ["words", "sentences", "paragraphs"])
 
-# Initialize session state for results
-if 'results' not in st.session_state:
-    st.session_state.results = []
 
 # Button to process the files
 if st.button("Process Text"):
-    if uploaded_files:
-        results = st.session_state.results
+    if st.session_state.file_contents:
+        results = []
         progress_bar = st.progress(0)
-        
-        for i, uploaded_file in enumerate(uploaded_files):
-            file_name = uploaded_file.name
-            file_content = uploaded_file.read().decode('utf-8')
+        for i, (file_name, file_content) in enumerate(st.session_state.file_contents.items()):
+            response_text, output_file_name = process_text(file_content, provider_choice, edited_prompt, chunk_size_input, chunk_by, model_choice=model_choice, progress_bar=progress_bar, original_file_name=file_name)
             
-            # Save the file content to a temporary file
-            temp_file_path = f"temp_{file_name}"
-            with open(temp_file_path, "w") as temp_file:
-                temp_file.write(file_content)
-            
-            # Process the text
-            response_text, output_file_name = process_text(temp_file_path, provider_choice, edited_prompt, chunk_size_input, chunk_by, model_choice=model_choice, progress_bar=progress_bar, original_file_name=file_name)
-            
-            # Store the result
             results.append((response_text, output_file_name))
             
-            # Update progress bar
-            progress_bar.progress((i + 1) / len(uploaded_files))
+            progress_bar.progress((i + 1) / len(st.session_state.file_contents))
         
-        # Update session state with results
         st.session_state.results = results
+
 
 # Display results
 st.header("Results")
